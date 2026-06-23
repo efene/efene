@@ -1,0 +1,4 @@
+_build/
+.git/
+*.beam
+erl_crash.dump

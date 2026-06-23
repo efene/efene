@@ -33,9 +33,9 @@ handle_input(Input, Bindings) ->
                                 {ok, Bindings}
                         end
                     catch
-                        T:E ->
+                        T:E:S ->
                             io:format("~p: ~p~n~n", [T, E]),
-                            pprint_strace(erlang:get_stacktrace()),
+                            pprint_strace(S),
                             {ok, Bindings}
                     end;
                 Other2 ->
