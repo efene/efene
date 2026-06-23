@@ -142,7 +142,7 @@ pp({attribute, _, compile, _}, _Ctx) -> empty();
 
 pp({attribute, _, record, {Name, Fields}}, Ctx) ->
     followc(Ctx, wrap(text(atom_to_list(Name)), text("@record("), text(") ->")),
-            wrap_paren(join(Fields, Ctx, fun pp_rec_def/2, comma_f())));
+            wrap_paren(pp_rec_fields(Fields, Ctx)));
 
 pp({var, _, V}, _Ctx) -> text(atom_to_list(V));
 pp({integer, _, Num}, _Ctx) -> text(integer_to_list(Num));
@@ -208,7 +208,9 @@ pp({op, _, Op, Left, Right}, Ctx) ->
     D1 = pp(Left, Ctx#ctxt{prec=LeftPrec}),
     D2 = text(atom_to_list(fn_to_erl:map_op_reverse(Op))),
     D3 = pp(Right, Ctx#ctxt{prec=RightPrec}),
-    D4 = parc(Ctx, [D1, D2, D3]),
+    % efene is newline-significant outside brackets, so the operator and its
+    % operands must stay on one line (any soft break happens inside D1/D3)
+    D4 = besidel([D1, text(" "), D2, text(" "), D3]),
     maybe_paren(Prec, Ctx#ctxt.prec, D4);
 
 % unary
@@ -216,7 +218,7 @@ pp({op, _, Op, Right}, Ctx) ->
     {Prec, RightPrec} = preop_prec(Op),
     LOp = text(atom_to_list(fn_to_erl:map_op_reverse(Op))),
     LRight = pp(Right, Ctx#ctxt{prec=RightPrec}),
-    L = parc(Ctx, [LOp, LRight]),
+    L = besidel([LOp, text(" "), LRight]),
     maybe_paren(Prec, Ctx#ctxt.prec, L);
 
 pp({lc, _, {block, _, Body}, Gens}, Ctx) ->
@@ -290,7 +292,8 @@ pp({'if', _, Clauses}, Ctx) ->
     pp_if_clauses(Clauses, Ctx, first);
 
 pp({'case', _, Expr, Clauses}, Ctx) ->
-    above(parc(Ctx, [text("match"), beside(pp(Expr, Ctx), colon_f())]),
+    % keep `match EXPR:` header on one line (newline before `:` is illegal)
+    above(besidel([text("match "), pp(Expr, Ctx), colon_f()]),
           above(pp_case_clauses(Clauses, Ctx),
                 text("end")));
 
@@ -376,10 +379,10 @@ pp_bin_e_type(Type=native, Ctx) ->
 
 
 pp_call(FName, Args, Ctx) ->
-    pp_call_f(FName, Args, Ctx, fun pp/2).
+    pp_call_f(FName, Args, Ctx, fun pp_elem/2).
 
 pp_call(MName, FName, Args, Ctx) ->
-    pp_call_f(MName, FName, Args, Ctx, fun pp/2).
+    pp_call_f(MName, FName, Args, Ctx, fun pp_elem/2).
 
 pp_call_f(FName, Args, Ctx, PPFun) ->
     beside(pp_call_pos(FName, Ctx), pp_args(Args, Ctx, PPFun)).
@@ -397,16 +400,19 @@ pp_lc_gens(Items, Ctx) ->
     join(Items, Ctx, fun pp_lc_gen/2, scolon_f()).
 
 pp_lc_gen({generate, _, Left, Right}, Ctx) ->
-    wrap(text(" in "), pp(Left, Ctx), pp(Right, Ctx));
+    % parenthesize the source so low-precedence sources (e.g. `H :: T`) parse
+    wrap(text(" in "), pp(Left, Ctx), pp_gen_src(Right, Ctx));
 % if there's a b_generate the for loop should be tagged with #b so it should be
 % handled as a b_generate anyway?
 pp_lc_gen({b_generate, _, Left, Right}, Ctx) ->
-    wrap(text(" in "), pp(Left, Ctx), pp(Right, Ctx));
+    wrap(text(" in "), pp(Left, Ctx), pp_gen_src(Right, Ctx));
 pp_lc_gen(Filter, Ctx) ->
     beside(text("when "), pp(Filter, Ctx)).
 
 pp_for(Gens, Ctx, BodyL, Kw) ->
-    above(sep([text(Kw), beside(pp_lc_gens(Gens, Ctx), colon_f())]),
+    % keep the `for ... :` header on one line (newline-significant grammar);
+    % sub-expression parens are added at element sites via pp_elem/2
+    above(besidel([text(Kw ++ " "), pp_lc_gens(Gens, Ctx), colon_f()]),
           above(nestc(Ctx, BodyL),
                 text("end"))).
 
@@ -561,9 +567,39 @@ pp_items(Items, Ctx) ->
     join(Items, Ctx, fun pp/2, comma_f()).
 
 pp_pair({map_field_assoc, _, K, V}, Ctx) ->
-    wrap_pair(Ctx, colon_f(), pp(K, Ctx), pp(V, Ctx));
+    wrap_pair(Ctx, colon_f(), pp(K, Ctx), pp_elem(V, Ctx));
 pp_pair({map_field_exact, _, K, V}, Ctx) ->
-    wrap_pair(Ctx, equal_f(), pp(K, Ctx), pp(V, Ctx)).
+    wrap_pair(Ctx, equal_f(), pp(K, Ctx), pp_elem(V, Ctx)).
+
+% Some constructs are only valid bare in statement/RHS position; in a
+% sub-expression (element) position they need parens. Examples:
+%   match as map value `k=(v=w)`, `for`/`if` as map value or call arg.
+pp_elem(V, Ctx) ->
+    case needs_elem_paren(V) of
+        true -> wrap_paren(pp(V, Ctx));
+        false -> pp(V, Ctx)
+    end.
+
+needs_elem_paren({match, _, _, _}) -> true;
+needs_elem_paren({'if', _, _}) -> true;
+needs_elem_paren({lc, _, _, _}) -> true;
+needs_elem_paren({bc, _, _, _}) -> true;
+needs_elem_paren(_) -> false.
+
+% the source of a generator needs parens for low-precedence forms like
+% an improper cons: `for X in ((a, b) :: T):`
+pp_gen_src(V={cons, _, _, _}, Ctx) ->
+    case is_proper_cons(V) of
+        true -> pp(V, Ctx);
+        false -> wrap_paren(pp(V, Ctx))
+    end;
+pp_gen_src(V, Ctx) -> pp_elem(V, Ctx).
+
+is_proper_cons(V) -> is_proper_list(cons_to_list(V, [])).
+
+is_proper_list([]) -> true;
+is_proper_list([_ | T]) -> is_proper_list(T);
+is_proper_list(_) -> false.
 
 pp_pair_type({type, _, map_field_assoc, [K, V]}, Ctx) ->
     wrap_pair(Ctx, colon_f(), pp_type(K, Ctx), pp_type(V, Ctx));
@@ -574,7 +610,14 @@ wrap_pair(Ctx, Sep, Left, Right) ->
     parc(Ctx, [beside(Left, Sep), Right]).
 
 pp_rec_pair({record_field, _, K, V}, Ctx) ->
-    parc(Ctx, [beside(pp(K, Ctx), colon_f()), pp(V, Ctx)]).
+    parc(Ctx, [beside(pp(K, Ctx), colon_f()), pp_elem(V, Ctx)]).
+
+% a single-field record needs a trailing comma, else `(field)` parses as a
+% parenthesized expression instead of a one-element field list
+pp_rec_fields([Field], Ctx) ->
+    beside(pp_rec_def(Field, Ctx), comma_f());
+pp_rec_fields(Fields, Ctx) ->
+    join(Fields, Ctx, fun pp_rec_def/2, comma_f()).
 
 pp_rec_def({record_field, _, Name}, Ctx) -> pp(Name, Ctx);
 pp_rec_def({record_field, _, Name, Val}, Ctx) -> wrap(equal_f(), pp(Name, Ctx), pp(Val, Ctx));
@@ -619,9 +662,9 @@ pp_type({type, Line, Name, Args}, Ctx) ->
 pp_cons(V, Ctx) ->
     case cons_to_list(V, []) of
         [A | B] when not is_list(A), not is_list(B) ->
-            followc(Ctx, beside(pp(A, Ctx), text(" ::")), pp(B, Ctx));
+            besidel([pp(A, Ctx), text(" :: "), pp(B, Ctx)]);
         [A | B] when not is_list(B) ->
-            followc(Ctx, beside(wrap_list(pp_items(A, Ctx)), text(" ::")), pp(B, Ctx));
+            besidel([wrap_list(pp_items(A, Ctx)), text(" :: "), pp(B, Ctx)]);
         L -> wrap_list(pp_items(L, Ctx))
     end.
 
