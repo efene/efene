@@ -203,8 +203,8 @@ main([]) ->
     io:format("\tefene erl2ast <file.erl>: print erlang absform <file.erl>~n"),
     io:format("\tefene erl2erl <file.erl>: parse and pretty print erlang <file.erl>~n"),
     io:format("\tefene beam <file> [<outdir>]: compile <file> to beam bytecode to <outdir>~n"),
-    io:format("\tefene pprint <file>: pretty print code from <file> (experimental)~n"),
     io:format("\tefene fmt <file.fn>: pretty print efene source <file.fn> as efene~n"),
+    io:format("\tefene fmt-erlang <file.erl>: pretty print erlang <file.erl> as efene~n"),
     ok;
 main(["rawlex", File]) ->
     print(to_raw_lex(File));
@@ -242,6 +242,9 @@ main(["beam", File, OutputDir]) ->
         Other ->
             print(Other)
     end;
+main(["fmt-erlang", File]) ->
+    pprint(File);
+% deprecated alias for fmt-erlang
 main(["pprint", File]) ->
     pprint(File);
 main(Opts) ->

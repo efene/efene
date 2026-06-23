@@ -21,7 +21,16 @@ For users we provide a [rebar3 plugin](guides/rebar-plugin.md) if you are develo
     ./_build/default/bin/efene mod file.fn
     ./_build/default/bin/efene erl file.fn
     ./_build/default/bin/efene erlast file.fn
-    ./_build/default/bin/efene pprint file.fn
+
+### Formatting
+
+Pretty print efene source as efene (a formatter):
+
+    ./_build/default/bin/efene fmt file.fn
+
+Pretty print Erlang source as efene (translate `.erl` to efene):
+
+    ./_build/default/bin/efene fmt-erlang file.erl
 
 ## License
 
