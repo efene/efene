@@ -56,7 +56,16 @@ replace_fn_holders([{fn, Name, Arity}|T], State=#{fns_by_name:=FnsByName},
             FnKey = {Name, Arity},
             FnInfo = maps:get(FnKey, FnsByName),
             #{ast := Ast} = FnInfo,
-            replace_fn_holders(T, State, [Ast|Accum], EmittedFns#{FnKey => FnInfo});
+            %% Ast is either a single function form or a [function, spec_attr]
+            %% list; splice lists into the form list instead of nesting them so
+            %% the result stays a flat list of forms (erl_syntax:form_list and
+            %% friends reject nested lists, even though compile:forms tolerates
+            %% them).
+            Accum1 = case Ast of
+                         L when is_list(L) -> lists:reverse(L, Accum);
+                         _ -> [Ast|Accum]
+                     end,
+            replace_fn_holders(T, State, Accum1, EmittedFns#{FnKey => FnInfo});
         _ ->
             replace_fn_holders(T, State, Accum, EmittedFns)
     end;
