@@ -310,9 +310,13 @@ pp({named_fun, _, AName, Clauses}, Ctx) ->
           text("end"));
 pp({function, _, Name, Arity, Clauses}, Ctx) ->
     IsExported = function_exported(Ctx, Name, Arity),
-    Attrs = if IsExported -> text("@public"); true -> empty() end,
-    % HACK: force a new line above each top level function
-    above(sep([text("\nfn"), quote_atom(Name), Attrs]),
+    % HACK: force a new line above each top level function.
+    % avoid a trailing space when the function has no @public attribute
+    Header = case IsExported of
+                 true -> besidel([text("\nfn "), quote_atom(Name), text(" @public")]);
+                 false -> besidel([text("\nfn "), quote_atom(Name)])
+             end,
+    above(Header,
           above(pp_case_clauses(Clauses, Ctx),
                 text("end")));
 
@@ -569,7 +573,7 @@ pp_items(Items, Ctx) ->
 pp_pair({map_field_assoc, _, K, V}, Ctx) ->
     wrap_pair(Ctx, colon_f(), pp(K, Ctx), pp_elem(V, Ctx));
 pp_pair({map_field_exact, _, K, V}, Ctx) ->
-    wrap_pair(Ctx, equal_f(), pp(K, Ctx), pp_elem(V, Ctx)).
+    wrap_pair_eq(Ctx, pp(K, Ctx), pp_elem(V, Ctx)).
 
 % Some constructs are only valid bare in statement/RHS position; in a
 % sub-expression (element) position they need parens. Examples:
@@ -604,10 +608,16 @@ is_proper_list(_) -> false.
 pp_pair_type({type, _, map_field_assoc, [K, V]}, Ctx) ->
     wrap_pair(Ctx, colon_f(), pp_type(K, Ctx), pp_type(V, Ctx));
 pp_pair_type({type, _, map_field_exact, [K, V]}, Ctx) ->
-    wrap_pair(Ctx, equal_f(), pp_type(K, Ctx), pp_type(V, Ctx)).
+    wrap_pair_eq(Ctx, pp_type(K, Ctx), pp_type(V, Ctx)).
 
 wrap_pair(Ctx, Sep, Left, Right) ->
     parc(Ctx, [beside(Left, Sep), Right]).
+
+% like wrap_pair but with a spaced `=` separator: `Left = Right`.
+% the `=` must stay attached to the key (a break before `=` is illegal),
+% so only the value may wrap onto the next line
+wrap_pair_eq(Ctx, Left, Right) ->
+    parc(Ctx, [beside(Left, text(" =")), Right]).
 
 pp_rec_pair({record_field, _, K, V}, Ctx) ->
     parc(Ctx, [beside(pp(K, Ctx), colon_f()), pp_elem(V, Ctx)]).
@@ -620,11 +630,11 @@ pp_rec_fields(Fields, Ctx) ->
     join(Fields, Ctx, fun pp_rec_def/2, comma_f()).
 
 pp_rec_def({record_field, _, Name}, Ctx) -> pp(Name, Ctx);
-pp_rec_def({record_field, _, Name, Val}, Ctx) -> wrap(equal_f(), pp(Name, Ctx), pp(Val, Ctx));
+pp_rec_def({record_field, _, Name, Val}, Ctx) -> besidel([pp(Name, Ctx), text(" = "), pp(Val, Ctx)]);
 pp_rec_def({typed_record_field, {record_field, _, Name}, Type}, Ctx) ->
     followc(Ctx, beside(pp(Name, Ctx), text(" is")), pp_type(Type, Ctx));
 pp_rec_def({typed_record_field, {record_field, _, Name, Val}, Type}, Ctx) ->
-    followc(Ctx, beside(wrap(equal_f(), pp(Name, Ctx), pp(Val, Ctx)), text(" is")), pp_type(Type, Ctx)).
+    followc(Ctx, beside(besidel([pp(Name, Ctx), text(" = "), pp(Val, Ctx)]), text(" is")), pp_type(Type, Ctx)).
 
 pp_type({ann_type, _, [Type, AnnType]}, Ctx) ->
     wrap(text(" is "), pp_type(Type, Ctx), pp_type(AnnType, Ctx));
