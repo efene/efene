@@ -2,7 +2,7 @@
 # OTP_VERSION is bumped one major at a time as the codebase is updated;
 # each value here is a baseline that builds with no warnings or errors.
 # The official erlang image bundles a compatible rebar3 for each OTP release.
-ARG OTP_VERSION=27
+ARG OTP_VERSION=28
 FROM erlang:${OTP_VERSION}
 
 WORKDIR /efene
