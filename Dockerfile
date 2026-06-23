@@ -1,11 +1,9 @@
-FROM erlang:22.0.7
-
-# Pin rebar3 to a version contemporaneous with the last commit (June 2019)
-RUN set -eux; \
-    curl -fsSL -o /usr/local/bin/rebar3 \
-        https://github.com/erlang/rebar3/releases/download/3.12.0/rebar3; \
-    chmod +x /usr/local/bin/rebar3; \
-    rebar3 --version
+# Build environment for efene.
+# OTP_VERSION is bumped one major at a time as the codebase is updated;
+# each value here is a baseline that builds with no warnings or errors.
+# The official erlang image bundles a compatible rebar3 for each OTP release.
+ARG OTP_VERSION=23
+FROM erlang:${OTP_VERSION}
 
 WORKDIR /efene
 COPY . .

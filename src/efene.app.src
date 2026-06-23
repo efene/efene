@@ -3,7 +3,7 @@
     {vsn, "0.99.2"},
     {modules, []},
     {registered, []},
-    {applications, [kernel, stdlib, aleppo]},
+    {applications, [kernel, stdlib]},
 
     {maintainers, ["Mariano Guerra"]},
     {licenses, ["APL 2.0"]},

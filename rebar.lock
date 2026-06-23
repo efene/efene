@@ -1,8 +1,0 @@
-{"1.1.0",
-[{<<"aleppo">>,{pkg,<<"aleppo">>,<<"0.9.0">>},0},
- {<<"ast_walk">>,{pkg,<<"ast_walk">>,<<"0.3.0">>},0}]}.
-[
-{pkg_hash,[
- {<<"aleppo">>, <<"43B4EC269FA136E39DCECBD4323D4346E0EF069A62528A9154F1BB3ACD26E3E4">>},
- {<<"ast_walk">>, <<"B4414AED2D6F213F9ECFC10E812AB1258B019901927A2363F909820CA959BEE8">>}]}
-].
