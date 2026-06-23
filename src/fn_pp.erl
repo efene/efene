@@ -99,6 +99,8 @@ pp({attribute, _, dialyzer, _}, _Ctx) -> empty();
 pp({attribute, _, callback, _}, _Ctx) -> empty();
 % TODO: handle optional_callbacks
 pp({attribute, _, optional_callbacks, _}, _Ctx) -> empty();
+% TODO: render fn_attrs (public/doc) as efene annotations
+pp({attribute, _, fn_attrs, _}, _Ctx) -> empty();
 pp({attribute, _, file, _}, _Ctx) -> empty();
 pp({attribute, _, module, _}, _Ctx) -> empty();
 pp({attribute, _, Attr=behaviour, V}, _Ctx) ->
