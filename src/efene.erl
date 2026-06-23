@@ -15,7 +15,7 @@
 -module(efene).
 -export([main/0, main/1, compile/2, compile/3, to_code/1, to_code/2,
          to_raw_lex/1, to_lex/1, to_ast/1,
-         to_erl/1, erl_to_erl_syntax/1, to_erl_ast/1, to_erl_ast/2,
+         to_erl/1, to_efene/1, erl_to_erl_syntax/1, to_erl_ast/1, to_erl_ast/2,
          to_mod/1,
          pprint/1, print_errors/2]).
 
@@ -76,6 +76,13 @@ pprint(Path) ->
 to_erl(Path) ->
     case to_mod(Path) of
         {ok, [_|Mod]} -> erl_prettypr:format(erl_syntax:form_list(Mod));
+        Other -> Other
+    end.
+
+% pretty print efene source <file.fn> back as efene source
+to_efene(Path) ->
+    case to_mod(Path) of
+        {ok, [_|Mod]} -> fn_pp:format(Mod);
         Other -> Other
     end.
 
@@ -197,6 +204,7 @@ main([]) ->
     io:format("\tefene erl2erl <file.erl>: parse and pretty print erlang <file.erl>~n"),
     io:format("\tefene beam <file> [<outdir>]: compile <file> to beam bytecode to <outdir>~n"),
     io:format("\tefene pprint <file>: pretty print code from <file> (experimental)~n"),
+    io:format("\tefene fmt <file.fn>: pretty print efene source <file.fn> as efene~n"),
     ok;
 main(["rawlex", File]) ->
     print(to_raw_lex(File));
@@ -210,6 +218,8 @@ main(["erlast", File]) ->
     print(to_erl_ast(File));
 main(["erl", File]) ->
     print(to_erl(File));
+main(["fmt", File]) ->
+    print(to_efene(File));
 main(["erl2syntax", File]) ->
     print(erl_to_erl_syntax(File));
 main(["erl2ast", File]) ->
