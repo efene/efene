@@ -775,8 +775,6 @@ cparen_f() -> floating(text(")")).
 omap_f() -> floating(text("{")).
 cmap_f() -> floating(text("}")).
 
-equal_f() -> floating(text("=")).
-
 comma_f() -> floating(text(",")).
 dot_f() -> floating(text(".")).
 colon_f() -> floating(text(":")).
